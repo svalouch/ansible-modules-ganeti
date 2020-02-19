@@ -399,11 +399,14 @@ def instance_create(module):
         module.fail_json(name=module.params['name'], msg='API call failed with code {0}: {1}'.format(response.status_code, str(response.text)))
     else:
         j_id = int(response.text)
-        (success, message) = wait_for_job(module, j_id)
-        if not success:
-            module.fail_json(name=module.params['name'], msg=message)
+        if module.params['wait']:
+            (success, message) = wait_for_job(module, j_id)
+            if not success:
+                module.fail_json(name=module.params['name'], msg=message)
+            else:
+                return (True, 'Instance {0} created'.format(module.params['name']))
         else:
-            return (True, 'Instance {0} created'.format(module.params['name']))
+            return (True, 'Create job added')
     return (False, 'An error occured')  # fail_json does not terminate in unit testing
 
 
