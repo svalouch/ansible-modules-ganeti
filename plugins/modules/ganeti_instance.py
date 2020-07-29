@@ -10,7 +10,7 @@ from ansible.module_utils.basic import AnsibleModule
 __metaclass__ = type
 
 try:
-    from ansible.module_utils.ganeti_rapi_client import GanetiRapiClient, GanetiApiError
+    from ansible_collections.sipgate.ganeti.plugins.module_utils.ganeti_rapi_client import GanetiRapiClient, GanetiApiError
 except:
     from ganeti_rapi_client import GanetiRapiClient, GanetiApiError
 
