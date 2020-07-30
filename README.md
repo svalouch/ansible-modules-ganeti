@@ -22,6 +22,19 @@ code does not use features introduced after Python 3.5, no care is taken
 to remain backwards compatible with earlier Python versions, especially
 not **2.x**. It is also tested to work on Ansible **2.10**.
 
+## Build and install
+
+```
+ansible-galaxy collection build
+ansible-galaxy collection install sipgate-ganeti-$version.tar.gz --force
+```
+
+## Validate module
+
+```
+ansible-test sanity --test validate-modules
+```
+
 ### GanetiRapiClient
 This module depends on the official [GanetiRapiClient](https://github.com/ganeti/ganeti/tree/master/lib/rapi) for python. Therefore it needs to be present for the python interpreter on the machine running ansible. The easiest way is to copy the GanetiRapiClient in a `module_utils` directory parallel to your library directory (see [Ansible Documentation](https://docs.ansible.com/ansible/latest/dev_guide/developing_module_utilities.html#using-and-developing-module-utilities)).
 

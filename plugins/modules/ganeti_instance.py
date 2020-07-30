@@ -3,16 +3,12 @@
 
 # Copyright (c) 2020 sipgate GmbH, <bearmetal@sipgate.de>
 # Copyright (c) 2020 Stefan Valouch (svalouch), <svalouch@valouch.com>
-# BSD 3-Clause License
+# GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
+# Original by Stefan Valouch (svalouch): BSD 3-Clause License
+
 from __future__ import absolute_import, division, print_function
-from ansible.module_utils.basic import AnsibleModule
 
 __metaclass__ = type
-
-try:
-    from ansible_collections.sipgate.ganeti.plugins.module_utils.ganeti_rapi_client import GanetiRapiClient, GanetiApiError
-except:
-    from ganeti_rapi_client import GanetiRapiClient, GanetiApiError
 
 ANSIBLE_METADATA = {
     'metadata_version': '1.1',
@@ -26,13 +22,13 @@ module: ganeti_instance
 short_description: Manage Ganeti instances
 description:
   - Manage instances supervised by a Ganeti cluster
-  - Instances can be started, stopped and restarted
+  - Instances can be started, stopped and restarted, migrated, modified
   - Allows semi-complex creation of instances
 author: sipgate GmbH (bearmetal@sipgate.de), Stefan Valouch (@svalouch)
 requirements:
   - "python >= 3.5"
-  - "ganeti >= 2.16"
-  - requests
+  - "ganeti >= 2.15"
+  - GanetiRapiClient
 options:
     address:
         description:
@@ -50,7 +46,6 @@ options:
         description:
           - Name of the user that connects to RAPI
         required: false
-        default: None
         type: str
     password:
         description:
@@ -59,7 +54,7 @@ options:
         type: str
     job_timeout:
         description:
-          - If ``wait`` is `true`, specifies the maximum amount of time in
+          - If I(wait=true), specifies the maximum amount of time in
             seconds to wait for the job to finish before moving on
         required: false
         type: int
@@ -67,10 +62,14 @@ options:
     state:
         description:
           - Desired state of the instance.
-          - States except ``absent`` and ``present`` report an error if the
+          - States except I(state=absent) and I(state=present) report an error if the
             instance does not exist.
-          - ``present`` creates the instance.
-          - ``absent`` deletes the instance.
+          - To create or modify an instance use I(state=present).
+          - To delete an instance use I(state=absent). The instance must be shutdown to be deleted.
+          - To stop an instance use I(state=stopped).
+          - To start an instance use I(state=started).
+          - To restart an instance use I(state=restarted).
+          - To migrate an instance use I(state=migrated).
         required: true
         choices:
           - absent
@@ -79,13 +78,15 @@ options:
           - started
           - stopped
           - migrated
+        default: 'present'
+        type: str
     wait:
         description:
-          - If ``true``, waits for the job that gets submitted to ganeti by
+          - If I(wait=true), waits for the job that gets submitted to ganeti by
             the module.
-          - The module waits for ``job_timeout`` seconds before reporting an
+          - The module waits for I(job_timeout) seconds before reporting an
             error.
-          - If ``false`` the module submits the job and returns immediately
+          - If I(wait=false) the module submits the job and returns immediately
             instead of waiting for ganeti to finish the job. There is no way
             for the module to detect if the job results in an error.
         required: false
@@ -93,9 +94,9 @@ options:
         default: true
     disk_template:
         description:
-          - If ``state`` is ``present``, specifies the disk template to use.
-          - If ``ext`` is specified, the ``provider`` needs to be specified in
-            the ``disks`` structure.
+          - If I(state=present), specifies the disk template to use.
+          - If I(disk_template=ext) is specified, the provider needs to be specified in
+            the I(disks) structure.
           - Templates not enabled on the cluster will result in an error.
         type: str
         choices:
@@ -121,7 +122,7 @@ options:
                 required: true
             mode:
                 description:
-                  - Disk access mode, such as ``rw``
+                  - Disk access mode, such as "rw"
                 type: str
             name:
                 description:
@@ -131,20 +132,19 @@ options:
                 type: str
             provider:
                 description:
-                  - `extstorage` provider, required if ``disk_template`` is
-                    set to ``ext``.
+                  - The extstorage provider, required if I(disk_template=ext).
                 type: str
     nics:
         description:
           - Specifies the network interfaces for the instance.
-          - The ``mode`` defines which of the suboptions are required, refer
+          - The mode defines which of the suboptions are required, refer
             to the Ganeti documentation in instance creation.
         type: list
         suboptions:
             bridge:
                 description:
                   - The name of the bridge to use
-                  - Used with ``mode`` set to `bridged`
+                  - Used with mode set to bridged
                 type: str
             name:
                 description:
@@ -171,8 +171,7 @@ options:
             link:
                 description:
                   - Interface on the host this virtual interface is connected to.
-                  - Example: Specify the name of the bridge to connect the tap
-                    device to.
+                  - "Example: Specify the name of the bridge to connect the tap device to."
                 type: str
             mode:
                 description:
@@ -200,6 +199,7 @@ options:
           - xen-hvm
           - lxc
           - fake
+        default: kvm
     iallocator:
         description:
           - IAllocator to use
@@ -210,9 +210,11 @@ options:
           - Name of the instance
         required: true
         type: str
+        aliases:
+          - instance_name
     new_name:
         description:
-          - When this parameter is present, the instance will be renamed to this value. Note: The VM needs to be stopped.
+          - "When this parameter is present, the instance will be renamed to this value. Note: The VM needs to be stopped."
         required: false
         type: str
     os_type:
@@ -223,7 +225,7 @@ options:
     osparams:
         description:
           - Optional parameters that are passed to the os create script.
-          - Specify flat ``key: value`` pairs
+          - Specify flat key:value pairs
         type: dict
     pnode:
         description:
@@ -233,7 +235,7 @@ options:
     snode:
         description:
           - Name or address of the optional secondary node.
-          - If set, ``pnode`` has to be set.
+          - If set, I(pnode) has to be set.
         type: str
     memory:
         description:
@@ -263,7 +265,6 @@ options:
         description:
           - Do not install the OS (will disable automatic start)
         type: bool
-        default: None
     wait_for_sync:
         description:
           - Whether to wait for the disk to synchronize
@@ -272,13 +273,12 @@ options:
     tags:
         description:
           - Instance tags
-        type: string[]
+        type: list
         default: []
     group_name:
         description:
           - Optional group name
         type: str
-        default: None
 '''
 
 EXAMPLES = r'''
@@ -326,15 +326,25 @@ EXAMPLES = r'''
 RETURN = r'''
 changed:
     description: Whether the the module performed a change related to the instance.
+    returned: always
     type: bool
 message:
     description: Optional message returned as a result of an action.
+    returned: always
     type: str
     sample: Instance created
 reboot_required:
     description: Optional return value used when instances are modified. When it is set to true, a restart of the qemu process is necessary.
+    returned: always
     type: bool
 '''
+
+from ansible.module_utils.basic import AnsibleModule
+
+try:
+    from ansible_collections.sipgate.ganeti.plugins.module_utils.ganeti_rapi_client import GanetiRapiClient, GanetiApiError
+except:
+    from ganeti_rapi_client import GanetiRapiClient, GanetiApiError
 
 client: GanetiRapiClient = None
 
@@ -662,7 +672,7 @@ def _modify_instance_assemble_disks(module, current_instance_parameters):
     return changed, disks
 
 
-def run_module():
+def main():
     # list of possible values for disk_template, taken from rapi docs v2.16
     disk_templates = ['sharedfile', 'diskless', 'plain', 'gluster', 'blockdev',
                       'drbd', 'ext', 'file', 'rbd']
@@ -774,4 +784,4 @@ def run_module():
 
 
 if __name__ == '__main__':
-    run_module()
+    main()
