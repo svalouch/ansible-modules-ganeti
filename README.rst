@@ -2,6 +2,8 @@
 Ansible modules for Ganeti
 ##########################
 
+**Warning**: This module is no longer maintained and has not been tested with recent versions of Ganeti.
+
 This is a small collection of modules that use the JSON API of Ganetis RAPI daemon. Use at your own risk!
 
 Overview
